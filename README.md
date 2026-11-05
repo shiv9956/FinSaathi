@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/5/51/IBM_logo.svg" width="80" alt="IBM Logo" />
+<img src="docs/assets/ibm_logo.svg" width="80" alt="IBM Logo" />
 
 # 💰 FinSaathi
 ### AI Agent for Digital Financial Literacy
@@ -75,65 +75,42 @@
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ONLINE PIPELINE                          │
-│                                                                 │
-│  User Input                                                     │
-│      │                                                          │
-│      ▼                                                          │
-│  ┌─────────┐    ┌───────────────────┐                          │
-│  │Streamlit│───▶│ Guardrails        │                          │
-│  │   UI    │    │ (PII mask+Refusal)│                          │
-│  └─────────┘    └────────┬──────────┘                          │
-│                          │                                      │
-│                          ▼                                      │
-│                  ┌───────────────┐                              │
-│                  │ Agent Router  │ (rule-based, no LLM)         │
-│                  └──┬──────┬──┬──┘                              │
-│         ┌───────────┘      │  └──────────────┐                 │
-│         ▼                  ▼                 ▼                  │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │Scam Checker │  │EMI / Budget  │  │RAG Retriever │          │
-│  │  (rules +   │  │  Tools       │  │(cosine sim)  │          │
-│  │   Granite)  │  │(pure Python) │  └──────┬───────┘          │
-│  └──────┬──────┘  └──────┬───────┘         │                   │
-│         │                │         ┌────────▼────────┐         │
-│         └────────────────┴────────▶│ IBM Granite     │         │
-│                                    │ on watsonx.ai   │         │
-│                                    └────────┬────────┘         │
-│                                             │                   │
-│                                    ┌────────▼────────┐         │
-│                                    │ Output Guards   │         │
-│                                    │ (disclaimer +   │         │
-│                                    │  sources +      │         │
-│                                    │  fraud helpline)│         │
-│                                    └────────┬────────┘         │
-│                                             │                   │
-│                                         Answer                  │
-└─────────────────────────────────────────────────────────────────┘
+### Online Inference Pipeline
 
-┌─────────────────────────────────────────────────────────────────┐
-│                       OFFLINE PIPELINE                          │
-│                                                                 │
-│  .md / .txt / .pdf / .docx                                      │
-│          │                                                      │
-│          ▼                                                      │
-│  ┌───────────────┐    ┌──────────────┐    ┌──────────────┐     │
-│  │Docling / pypdf│───▶│   Chunker    │───▶│  IBM Granite │     │
-│  │  (text extract│    │(800 chars,   │    │  Embeddings  │     │
-│  │   + metadata) │    │ 120 overlap) │    │  watsonx.ai  │     │
-│  └───────────────┘    └──────────────┘    └──────┬───────┘     │
-│                                                   │             │
-│                                          ┌────────▼──────────┐  │
-│                                          │  embeddings.npy   │  │
-│                                          │  chunks.json      │  │
-│                                          │  (data/index/)    │  │
-│                                          └───────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A([👤 User Input]) --> B[🖥️ Streamlit UI]
+    B --> C[🛡️ Guardrails\nPII Mask + Refusal Check]
+    C --> D{🧠 Agent Router\nrule-based, no LLM}
+    D -->|scam / fraud keywords| E[🔍 Scam Checker\nrules + Granite]
+    D -->|EMI + 3 numbers| F[📊 EMI Calculator\npure Python]
+    D -->|budget + income| G[📋 Budget Planner\npure Python]
+    D -->|all other queries| H[🔎 RAG Retriever\ncosine similarity]
+    H --> I[(🗄️ Vector Index\nembeddings.npy)]
+    I --> J[📄 Top-K Chunks]
+    J --> K[🤖 IBM Granite\non watsonx.ai]
+    E --> K
+    F --> L[✅ Formatted Result]
+    G --> L
+    K --> M[📝 Output Guards\ndisclaimer + sources\n+ fraud helpline]
+    L --> M
+    M --> N([💬 Answer with Sources])
+    N --> B
 ```
 
-> See [`docs/architecture.md`](docs/architecture.md) for the full Mermaid flowchart and Responsible AI section.
+### Offline Ingestion Pipeline
+
+```mermaid
+flowchart LR
+    A([📁 Documents\n.md .txt .pdf .docx]) --> B{Docling\nor pypdf}
+    B --> C[📄 Raw Text\n+ Metadata]
+    C --> D[✂️ Chunker\n~800 chars\n120 overlap]
+    D --> E[📦 Chunks\nsource_name\nsource_url]
+    E --> F[🤖 IBM Granite\nEmbeddings\nwatsonx.ai]
+    F --> G[(🗄️ data/index/\nembeddings.npy\nchunks.json)]
+```
+
+> See [`docs/architecture.md`](docs/architecture.md) for the Responsible AI section.
 
 ---
 
